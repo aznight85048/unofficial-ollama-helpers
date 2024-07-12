@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Local Server</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #status {
+            margin-top: 20px;
+        }
+
+        .status-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .available {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .not-available {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .cors-blocked {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        #url-list {
+            width: 100%;
+            height: 100px;
+        }
+
+        #check-servers-button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #check-servers-button:hover {
+            background-color: #0056b3;
+        }
+
+        #console-output {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: scroll;
+        }
+
+        .console-message {
+            font-family: monospace;
+            margin: 5px 0;
+        }
+
+        .log {
+            color: #000;
+        }
+
+        .error {
+            color: #d9534f;
+        }
+    </style>
+</head>
+<body>
+    <h1>Check Local Server</h1>
+    <textarea id="url-list">
+http://127.0.0.1:11434
+http://127.0.0.1:11435
+http://127.0.0.1:11436
+    </textarea>
+    <button id="check-servers-button">Check Server Status</button>
+    <div id="status">Checking server status...</div>
+    <div id="console-output"></div>
+
+    <script>
+        // Function to log messages to the UI console
+        function logToConsole(message, type = 'log') {
+            const consoleOutput = document.getElementById('console-output');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `console-message ${type}`;
+            messageDiv.innerText = message;
+            consoleOutput.appendChild(messageDiv);
+        }
+
+        // Override console methods to also log to the UI console
+        const originalLog = console.log;
+        console.log = function (message) {
+            originalLog.apply(console, arguments);
+            logToConsole(message, 'log');
+        };
+
+        const originalError = console.error;
+        console.error = function (message) {
+            originalError.apply(console, arguments);
+            logToConsole(message, 'error');
+        };
+
+        // Capture global error events
+        window.addEventListener('error', (event) => {
+            const errorMessage = event.message || 'Unknown error';
+            logToConsole(`Global error captured: ${errorMessage}`, 'error');
+        });
+
+        // Capture unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            const errorMessage = event.reason ? event.reason.message : 'Unknown promise rejection';
+            logToConsole(`Unhandled promise rejection: ${errorMessage}`, 'error');
+        });
+
+        async function checkServerAvailability(url) {
+            const statusElement = document.getElementById('status');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'status-message';
+            statusElement.appendChild(statusDiv);
+
+            console.log(`Starting assessment for ${url}`);
+            let accessibilityStatus = '';
+            let rootCause = '';
+
+            // Step 1: Attempt to access the server with CORS enabled
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+
+                if (response.ok) {
+                    statusDiv.innerText = `Server at ${url} is available.`;
+                    statusDiv.classList.add('available');
+                    console.log(`Server at ${url} is available.`);
+                    accessibilityStatus = 'Available';
+                    return; // Exit since the server is confirmed available
+                } else {
+                    statusDiv.innerText = `Server at ${url} is not available. Status code: ${response.status}`;
+                    statusDiv.classList.add('not-available');
+                    console.log(`Server at ${url} is not available. Status code: ${response.status}`);
+                    accessibilityStatus = 'Not Available';
+                    rootCause = `Status code: ${response.status}`;
+                }
+            } catch (error) {
+                const errorMessage = error.toString();
+                console.error(`Fetch error for ${url}: ${errorMessage}`);
+
+                // Step 2: Attempt to access the server with no-cors mode
+                try {
+                    await fetch(url, {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    });
+                    statusDiv.innerText = `Server at ${url} is reachable but CORS policy blocks access.`;
+                    statusDiv.classList.add('cors-blocked');
+                    console.log(`Server at ${url} is reachable in 'no-cors' mode. Possible CORS issue.`);
+                    accessibilityStatus = 'CORS Blocked';
+                    rootCause = 'CORS policy blocks access';
+                    return; // Exit since the issue is identified as CORS-related
+                } catch (noCorsError) {
+                    console.error(`No-cors fetch error for ${url}: ${noCorsError.toString()}`);
+                    statusDiv.innerText = `Server at ${url} is not available. Fetch failed due to: ${errorMessage}`;
+                    statusDiv.classList.add('not-available');
+                    console.log(`Server at ${url} is not available. Fetch failed due to: ${errorMessage}`);
+                    accessibilityStatus = 'Not Available';
+                    rootCause = `Fetch failed due to: ${errorMessage}`;
+                }
+            }
+
+            // Step 3: Additional check with XMLHttpRequest for more error context
+            await new Promise((resolve) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', url);
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        console.log(`Server at ${url} is available (XHR).`);
+                        statusDiv.innerText = `Server at ${url} is available (XHR).`;
+                        statusDiv.classList.add('available');
+                        accessibilityStatus = 'Available';
+                    } else {
+                        console.log(`Server at ${url} is not available (XHR). Status code: ${xhr.status}`);
+                        statusDiv.innerText = `Server at ${url} is not available (XHR). Status code: ${xhr.status}`;
+                        statusDiv.classList.add('not-available');
+                        accessibilityStatus = 'Not Available';
+                        rootCause = `Status code: ${xhr.status}`;
+                    }
+                    resolve();
+                };
+                xhr.onerror = () => {
+                    console.error(`XHR error for ${url}: ${xhr.statusText} (status: ${xhr.status})`);
+                    if (xhr.status === 0) {
+                        if (!navigator.onLine) {
+                            rootCause = 'Network issue, possibly offline';
+                        } else {
+                            rootCause = 'Server does not exist';
+                        }
+
+                        console.error(`Possible issue for ${url}: ${rootCause}`);
+                        statusDiv.innerText = `Possible issue for ${url}: ${rootCause}`;
+                        statusDiv.classList.add('not-available');
+                        accessibilityStatus = 'Not Available';
+                    }
+                    resolve();
+                };
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+                        const corsHeader = xhr.getResponseHeader('Access-Control-Allow-Origin');
+                        console.log(`Response headers for ${url}: ${xhr.getAllResponseHeaders()}`);
+                        if (!corsHeader && xhr.status === 0) {
+                            console.error(`Server at ${url} is not reachable. It is likely that the server does not exist.`);
+                            statusDiv.innerText = `Server at ${url} is not reachable. It is likely that the server does not exist.`;
+                            statusDiv.classList.add('not-available');
+                            accessibilityStatus = 'Not Available';
+                            rootCause = 'Server does not exist';
+                        } else if (!corsHeader) {
+                            console.error(`CORS headers missing for ${url}`);
+                            statusDiv.innerText = `CORS headers missing for ${url}`;
+                            statusDiv.classList.add('cors-blocked');
+                            accessibilityStatus = 'CORS Blocked';
+                            rootCause = 'CORS headers missing';
+                        }
+                    }
+                };
+                xhr.send();
+            });
+
+            // Final assessment and logging
+            console.log(`Ending assessment for ${url}`);
+            statusDiv.innerText += `\nAccessibility Status: ${accessibilityStatus}\nRoot Cause: ${rootCause}`;
+        }
+
+        async function checkServers(urls) {
+            const statusElement = document.getElementById('status');
+            statusElement.innerHTML = ''; // Clear previous statuses
+
+            for (const url of urls) {
+                await checkServerAvailability(url.trim());
+            }
+        }
+
+        document.getElementById('check-servers-button').addEventListener('click', () => {
+            const urlList = document.getElementById('url-list').value.split('\n');
+            document.getElementById('console-output').innerHTML = ''; // Clear console output
+            checkServers(urlList);
+        });
+
+        // Call the function to check the server status when the page loads with default URLs
+        window.onload = () => {
+            document.getElementById('check-servers-button').click();
+        };
+    </script>
+</body>
+</html>
