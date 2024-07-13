@@ -32,3 +32,25 @@ Open `api-chat-interface.html` in a web browser to use the simple browser-based 
 ## Related Projects
 
 For a more advanced chat interface, check out the [promptGenAI](https://github.com/aznight85048/promptgenai) repository.
+
+
+### Additional Notes
+
+These helpers are not meant to be end-all solutions. They are provided as-is to help new and curious Ollama users get past some of the challenges I experienced during my journey using Ollama and local LLMs. I hope you find these helpers useful in yours.
+
+#### Getting Started with Local LLMs
+
+If you are new to local LLMs and unsure of your workstation's capabilities, start by downloading one of the smaller models. I like using `tinydolphin:1.1b-v2.8-q5_K_M`—response times seem to be quicker than many other models, something I find valuable when just trying to see if something is working. Once you are sure your setup is functioning as expected, then start exerimenting with larger more capable models.
+
+#### Handling Model Memory Issues
+
+When using the chat interface, if you switch models and encounter an error like "model is too large for this system," it may be due to the previous model still residing in memory. You can check this by running:
+
+```sh
+ollama ps
+```
+
+If you are using default settings, the unused model should unload itself from memory after a few minutes. Once it clears you can try the new model again, if you still get the error, that model may actually be too large for you to run. (check Ollama docs for details).
+
+
+Good Luck and enjoy the journey!
