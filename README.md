@@ -98,3 +98,15 @@ Good Luck and enjoy the journey!
 2. **Start Chatting**: Use the interface to interact with the Ollama Serve API.
 
 ---
+
+## FAQ
+
+**Q: What is `ollama serve`?**
+A: `ollama serve` is an API for serving machine learning models locally.
+
+**Q: Why do I need a proxy server?**
+A: The proxy server helps bypass CORS issues when accessing the Ollama Serve API from a browser.
+
+Feel free to reach out if you have any questions or need further assistance. Enjoy your journey with local LLMs!
+
+---
